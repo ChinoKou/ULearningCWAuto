@@ -80,7 +80,7 @@ class LoginAPI:
             user_info = json.loads(unquote(USERINFO))
 
             # 转换为模型
-            resp_model = LoginAPIUserInfoResponse(**user_info)
+            resp_model = LoginAPIUserInfoResponse.parse(user_info)
 
             logger.debug(f"[API][✓] 执行登录并获取用户信息")
 
@@ -173,7 +173,7 @@ class CourseAPI:
 
             # 解析数据
             resp_body: dict = resp.json()
-            resp_model = CourseListAPIResponse(**resp_body)
+            resp_model = CourseListAPIResponse.parse(resp_body)
 
             logger.debug(f"[API][✓] 获取课程列表")
 
@@ -209,7 +209,10 @@ class CourseAPI:
 
             # 解析数据
             resp_body = resp.json()
-            resp_model = TextbookListAPIResponse.create(resp=resp_body)
+
+            resp_model = TextbookListAPIResponse.parse(
+                resp_body={"textbooks": resp_body}
+            )
 
             logger.debug(f"[API][✓] 获取教材列表 课程 ID - {course_id}")
 
@@ -249,11 +252,14 @@ class CourseAPI:
 
             # 解析数据
             resp_body = resp.json()
-            resp_model = TextbookInfoAPIResponse(**resp_body)
+            resp_model = TextbookInfoAPIResponse.parse(resp_body)
 
             logger.debug(
                 f"[API][✓] 获取教材信息 教材 ID - {textbook_id} 班级 ID - {class_id}"
             )
+
+            if not resp_model:
+                return None
 
             return {textbook_id: resp_model}
 
@@ -286,9 +292,12 @@ class CourseAPI:
 
             # 解析数据
             resp_body = resp.json()
-            resp_model = ChapterInfoAPIResponse(**resp_body)
+            resp_model = ChapterInfoAPIResponse.parse(resp_body)
 
             logger.debug(f"[API][✓] 获取章节信息, 章节 ID - {chapter_id}")
+
+            if not resp_model:
+                return None
 
             return {chapter_id: resp_model}
 
@@ -325,9 +334,12 @@ class CourseAPI:
 
             # 解析数据
             resp_body = resp.json()
-            resp_model = StudyRecordAPIResponse(**resp_body)
+            resp_model = StudyRecordAPIResponse.parse(resp_body)
 
             logger.debug(f"[API][✓] 获取学习记录信息, 节ID - {section_id}")
+
+            if not resp_model:
+                return {section_id: (False, None)}
 
             return {section_id: (True, resp_model)}
 
@@ -365,11 +377,14 @@ class CourseAPI:
 
             # 解析数据
             resp_body = resp.json()
-            resp_model = QuestionAnswerAPIResponse(**resp_body)
+            resp_model = QuestionAnswerAPIResponse.parse(resp_body)
 
             logger.debug(
                 f"[API][✓] 获取答案列表 问题 ID - {question_id} 页面 ID - {parent_id}"
             )
+
+            if not resp_model:
+                return None
 
             return {question_id: resp_model}
 
@@ -396,7 +411,7 @@ class CourseAPI:
                 return None
 
             resp_body = resp.json()
-            resp_model = CourseAPIUserInfoAPIResponse(**resp_body)
+            resp_model = CourseAPIUserInfoAPIResponse.parse(resp_body)
 
             logger.debug("[API][✓] 获取用户信息")
 

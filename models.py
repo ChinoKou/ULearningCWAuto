@@ -1,6 +1,8 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from traceback import format_exc
+from typing import TYPE_CHECKING, Self
 
+from loguru import logger
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
@@ -122,6 +124,26 @@ class ModelCourse(BaseModel):
                 self.textbooks.pop(textbook_id)
 
 
+class BaseAPIResponse(BaseModel):
+    @classmethod
+    def parse(cls, resp_body: dict) -> Self | None:
+        try:
+            return cls.model_validate(obj=resp_body, extra="forbid")
+
+        except Exception as e:
+            logger.warning(f"解析数据过程出错, 尝试兼容多余字段")
+            return cls.__try_extra(resp_body)
+
+    @classmethod
+    def __try_extra(cls, resp_body: dict) -> Self | None:
+        try:
+            return cls.model_validate(obj=resp_body, extra="allow")
+        except Exception as e:
+            logger.error(f"数据解析失败, 请提供日志并且提交issue反馈")
+            logger.debug(f"{format_exc()}\n[MODEL] 解析失败: {e}")
+            return None
+
+
 class SyncStudyRecordAPIRequest(BaseModel):
     """
     同步学习记录API请求数据模型
@@ -198,7 +220,7 @@ class SyncStudyRecordAPIRequest(BaseModel):
     pageStudyRecordDTOList: list[PageStudyRecordDTO]
 
 
-class QuestionAnswerAPIResponse(BaseModel):
+class QuestionAnswerAPIResponse(BaseAPIResponse):
     """
     问题答案API响应数据模型
     url = https://api.ulearning.cn/questionAnswer/{question_id}
@@ -212,7 +234,7 @@ class QuestionAnswerAPIResponse(BaseModel):
     """正确答案列表 与 answer_list 性质相同"""
 
 
-class StudyRecordAPIResponse(BaseModel):
+class StudyRecordAPIResponse(BaseAPIResponse):
     """
     学习记录API响应数据模型
     url = https://api.ulearning.cn/studyrecord/item/{section_id}
@@ -289,7 +311,7 @@ class StudyRecordAPIResponse(BaseModel):
     pageStudyRecordDTOList: list[PageStudyRecordDTO]
 
 
-class ChapterInfoAPIResponse(BaseModel):
+class ChapterInfoAPIResponse(BaseAPIResponse):
     """
     章节信息API响应数据模型
     url = https://api.ulearning.cn/wholepage/chapter/stu/{chapter_id}
@@ -432,7 +454,7 @@ class ChapterInfoAPIResponse(BaseModel):
     """节列表"""
 
 
-class TextbookInfoAPIResponse(BaseModel):
+class TextbookInfoAPIResponse(BaseAPIResponse):
     """
     教材信息API响应数据模型
     url = https://api.ulearning.cn/course/stu/{textbook_id}/directory"
@@ -489,7 +511,7 @@ class TextbookInfoAPIResponse(BaseModel):
     """章列表"""
 
 
-class TextbookListAPIResponse(BaseModel):
+class TextbookListAPIResponse(BaseAPIResponse):
     """
     教材列表API响应数据模型
     url = https://courseapi.ulearning.cn/textbook/student/{course_id}/list
@@ -518,12 +540,8 @@ class TextbookListAPIResponse(BaseModel):
 
     textbooks: list[TextbookInfo]
 
-    @classmethod
-    def create(cls, resp: list) -> "TextbookListAPIResponse":
-        return cls(textbooks=resp)
 
-
-class CourseListAPIResponse(BaseModel):
+class CourseListAPIResponse(BaseAPIResponse):
     """
     课程列表API响应数据模型
     url = https://courseapi.ulearning.cn/courses/students
@@ -575,7 +593,7 @@ class CourseListAPIResponse(BaseModel):
     courseList: list[_Course]
 
 
-class LoginAPIUserInfoResponse(BaseModel):
+class LoginAPIUserInfoResponse(BaseAPIResponse):
     """
     登录获取的用户信息API响应模型
     url = https://courseapi.ulearning.cn/users/login/v2
@@ -611,7 +629,7 @@ class LoginAPIUserInfoResponse(BaseModel):
     """优学院版本"""
 
 
-class CourseAPIUserInfoAPIResponse(BaseModel):
+class CourseAPIUserInfoAPIResponse(BaseAPIResponse):
     """
     获取用户信息API响应数据模型
     url = https://api.ulearning.cn/user
