@@ -2584,7 +2584,7 @@ class VersionManager:
     """版本管理类"""
 
     def __init__(self) -> None:
-        self.version = "v1.0.9"  # 硬编码
+        self.version = "v1.1.0"  # 硬编码
         self.client = HttpClient()
 
     async def get_latest_tag(self, use_proxy: bool = True) -> str | None:
