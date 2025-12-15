@@ -125,8 +125,18 @@ class ModelCourse(BaseModel):
 
 
 class BaseAPIResponse(BaseModel):
+    """API响应数据模型基类"""
+
     @classmethod
     def parse(cls, resp_body: dict) -> Self | None:
+        """
+        解析API响应数据
+
+        :param resp_body: 响应体
+        :type resp_body: dict
+        :return: 数据模型
+        :rtype: Self | None
+        """
         try:
             return cls.model_validate(obj=resp_body, extra="forbid")
 
@@ -136,8 +146,17 @@ class BaseAPIResponse(BaseModel):
 
     @classmethod
     def __try_extra(cls, resp_body: dict) -> Self | None:
+        """
+        解析API响应数据(兼容多语字段)
+
+        :param resp_body: 响应体
+        :type resp_body: dict
+        :return: 数据模型
+        :rtype: Self | None
+        """
         try:
             return cls.model_validate(obj=resp_body, extra="allow")
+
         except Exception as e:
             logger.error(f"数据解析失败, 请提供日志并且提交issue反馈")
             logger.debug(f"{format_exc()}\n[MODEL] 解析失败: {e}")
