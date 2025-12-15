@@ -63,9 +63,7 @@ class HttpClient:
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0"
         )
-        headers = {
-            "User-Agent": USER_AGENT
-        }
+        headers = {"User-Agent": USER_AGENT}
         if token != "a":
             headers["Authorization"] = token
 
@@ -1382,6 +1380,46 @@ class CourseManager:
             if not course_info.textbooks:
                 course_config.pop(course_id)
 
+    async def __start_course_ware_confirm(self) -> bool:
+        logger.debug("[MANAGER][COURSE] 开始刷课前确认")
+
+        try:
+            await self.__print_course_ware_info()
+            logger.warning("请再次查看此次刷课信息, 并确认")
+
+            while True:
+                choices = [
+                    "默认模式 (开始前清理已刷完课程)",
+                    "全刷模式 (不清理已刷完课程)",
+                    "再次查看此次刷课信息",
+                    "返回",
+                ]
+                choice = await answer(
+                    questionary.select(
+                        message="请在开始刷课前进行确认",
+                        choices=choices,
+                        instruction="(使用方向键选择, 回车键确认)",
+                    )
+                )
+                if choice == choices[0]:
+                    await self.__prune_completed_course_ware()
+                    return True
+
+                elif choice == choices[1]:
+                    return True
+
+                elif choice == choices[2]:
+                    await self.__print_course_ware_info()
+                    continue
+
+                elif choice == choices[3]:
+                    break
+
+            return False
+
+        except Exception as e:
+            return False
+
     async def __start_course_ware(self) -> None:
         """开始刷课"""
         logger.debug("[MANAGER][COURSE] 开始刷课")
@@ -1389,6 +1427,9 @@ class CourseManager:
         try:
             if not self.user_config.courses:
                 logger.warning("当前用户未配置课程")
+                return None
+
+            if not await self.__start_course_ware_confirm():
                 return None
 
             user_info = await self.course_api.get_user_info()
