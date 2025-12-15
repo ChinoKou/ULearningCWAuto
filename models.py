@@ -141,6 +141,7 @@ class BaseAPIResponse(BaseModel):
             return cls.model_validate(obj=resp_body, extra="forbid")
 
         except Exception as e:
+            logger.debug(f"{format_exc()}\n[MODEL] 解析失败")
             logger.warning(f"解析数据过程出错, 尝试兼容多余字段")
             return cls.__try_extra(resp_body)
 
@@ -159,7 +160,7 @@ class BaseAPIResponse(BaseModel):
 
         except Exception as e:
             logger.error(f"数据解析失败, 请提供日志并且提交issue反馈")
-            logger.debug(f"{format_exc()}\n[MODEL] 解析失败: {e}")
+            logger.debug(f"{format_exc()}\n[MODEL] 解析失败")
             return None
 
 
@@ -363,6 +364,8 @@ class ChapterInfoAPIResponse(BaseAPIResponse):
                 """资源ID / 视频ID"""
                 skipVideoTitle: int
                 note: str
+                resourceFullurl: str | None = None
+                answertime: int | None = None
 
             class ContentPageDTO(BasePageDTO):
                 """内容元素数据模型"""
@@ -380,7 +383,6 @@ class ChapterInfoAPIResponse(BaseAPIResponse):
                 resourceid: int
                 """视频ID = video_id"""
 
-                resourceFullurl: str
                 resourceContentSize: int
                 videoQuestionDTOList: list
                 knowledgeResourceDTOS: list
@@ -422,6 +424,10 @@ class ChapterInfoAPIResponse(BaseAPIResponse):
                     blankOrder: int
                     choiceitemModels: list[choiceitemModel] | None = None
                     tagList: list
+                    srtDTO: dict | None = None
+                    link: str | None = None
+                    linkList: list | None = None
+                    linkOptionList: dict | None = None
                     relatedTextbookChapterDTOList: list
 
                 content: str
@@ -433,7 +439,6 @@ class ChapterInfoAPIResponse(BaseAPIResponse):
                 content: str
                 """内容"""
 
-                resourceFullurl: str
                 resourceContentSize: int
                 docTitle: str
                 docSize: int
@@ -632,6 +637,8 @@ class LoginAPIUserInfoResponse(BaseAPIResponse):
     """性别"""
     orgHome: str
     """机构主页"""
+    orgLogo: str
+    """机构Logo"""
     userId: int
     """用户ID"""
     orgId: int

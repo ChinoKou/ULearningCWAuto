@@ -2579,7 +2579,7 @@ class VersionManager:
     """版本管理类"""
 
     def __init__(self) -> None:
-        self.version = "v1.0.8"  # 硬编码, 没招. 手动维护
+        self.version = "v1.0.9"  # 硬编码
         self.client = HttpClient()
 
     async def get_latest_tag(self) -> str | None:
@@ -2600,10 +2600,11 @@ class VersionManager:
 
             # 检测 Github 代理
             for proxy in proxy_urls:
-                logger.info(f"正在检测 Github 代理: {proxy}")
+                logger.debug(f"[MANAGER][VERSION] 正在检测 Github 代理: {proxy}")
                 resp = await self.client.get(url=proxy, timeout=5)
                 if resp and resp.status_code < 500:
                     proxy_url = proxy
+                    logger.info(f"使用 Github 代理: {proxy}")
                     break
 
             # 设置代理
@@ -2657,7 +2658,7 @@ class VersionManager:
                 return False
 
             else:
-                logger.info("当前版本已是最新版本")
+                logger.success("当前版本已是最新版本")
                 return True
 
         except Exception as e:
