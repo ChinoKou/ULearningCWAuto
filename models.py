@@ -138,11 +138,14 @@ class BaseAPIResponse(BaseModel):
         :rtype: Self | None
         """
         try:
+            # 尝试验证模型
             return cls.model_validate(obj=resp_body, extra="forbid")
 
         except Exception as e:
             logger.debug(f"{format_exc()}\n[MODEL] 解析失败")
             logger.warning(f"解析数据过程出错, 尝试兼容多余字段")
+
+            # 尝试兼容多余字段
             return cls.__try_extra(resp_body)
 
     @classmethod
@@ -156,7 +159,9 @@ class BaseAPIResponse(BaseModel):
         :rtype: Self | None
         """
         try:
-            return cls.model_validate(obj=resp_body, extra="allow")
+            model_instance = cls.model_validate(obj=resp_body, extra="allow")
+            logger.success("兼容多余字段成功")
+            return model_instance
 
         except Exception as e:
             logger.error(f"数据解析失败, 请提供日志并且提交issue反馈")
