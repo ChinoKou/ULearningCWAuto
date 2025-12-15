@@ -2101,6 +2101,8 @@ class CourseManager:
 
 
 class DataManager:
+    """数据解析/构造类"""
+
     def __init__(self) -> None:
         pass
 
@@ -2571,3 +2573,92 @@ class DataManager:
                 f"{format_exc()}\n[MANAGER][DATA] 构造同步学习记录请求出错: {e}"
             )
             return None
+
+
+class VersionManager:
+    """版本管理类"""
+
+    def __init__(self) -> None:
+        self.version = "v1.0.8"  # 硬编码, 没招. 手动维护
+        self.client = HttpClient()
+
+    async def get_latest_tag(self) -> str | None:
+        logger.debug("[MANAGER][VERSION] 获取最新版本号")
+
+        try:
+            # 构造 url
+            url = (
+                "https://api.github.com/repos/ChinoKou/ULearningCWAuto/releases/latest"
+            )
+            proxy_urls = [
+                "https://gh-proxy.org/",
+                "https://hk.gh-proxy.org/",
+                "https://cdn.gh-proxy.org/",
+                "https://edgeone.gh-proxy.org/",
+            ]
+            proxy_url: str | None = None
+
+            # 检测 Github 代理
+            for proxy in proxy_urls:
+                logger.info(f"正在检测 Github 代理: {proxy}")
+                resp = await self.client.get(url=proxy, timeout=5)
+                if resp and resp.status_code < 500:
+                    proxy_url = proxy
+                    break
+
+            # 设置代理
+            if proxy_url:
+                url = proxy_url + url
+            else:
+                logger.warning("似乎没有可用的 Github 代理")
+
+            resp = await self.client.get(url=url, timeout=8)
+            if not resp or resp.status_code != 200:
+                status_code = resp.status_code if resp else None
+                logger.error(
+                    f"[MANAGER][VERSION] 获取最新版本号时网络出错: HTTP {status_code}"
+                )
+                return None
+
+            # 解析数据
+            resp_body: dict = resp.json()
+            tag_name: str | None = resp_body.get("tag_name")
+
+            logger.debug(f"[MANAGER][VERSION][✓] 获取最新版本号")
+
+            return tag_name
+
+        except Exception as e:
+            logger.error(
+                f"{format_exc()}\n[MANAGER][VERSION] 获取最新版本号时出错: {e}"
+            )
+            return None
+
+    async def check_version(self) -> bool:
+        logger.debug("[MANAGER][VERSION] 检查版本")
+
+        try:
+            logger.info("正在检查更新")
+            latest_tag = await self.get_latest_tag()
+            if not latest_tag:
+                logger.error("检查版本更新失败")
+                confirm = await answer(
+                    questionary.confirm(
+                        message="是否跳过版本检查继续运行?", default=False
+                    )
+                )
+                return True if confirm else False
+
+            if self.version < latest_tag:
+                logger.warning(f"检测到新版本 {latest_tag}, 当前版本: {self.version}, 请更新")
+                logger.warning(
+                    "请前往下载: https://github.com/ChinoKou/ULearningCWAuto/releases/latest"
+                )
+                return False
+
+            else:
+                logger.info("当前版本已是最新版本")
+                return True
+
+        except Exception as e:
+            return False

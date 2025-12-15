@@ -8,7 +8,7 @@ import questionary
 from loguru import logger
 
 from config import Config
-from services import ConfigManager, CourseManager, UserManager
+from services import ConfigManager, CourseManager, UserManager, VersionManager
 from utils import answer, set_logger
 
 if TYPE_CHECKING:
@@ -20,6 +20,7 @@ class Main:
         self.config: Config = Config.load()
         self.active_client: "HttpClient | None" = None
         self.user_manager: UserManager = UserManager(self.config)
+        self.version_manager: VersionManager = VersionManager()
         self.choices: list[str] = [
             "进入课件管理",
             "进入账户管理",
@@ -38,6 +39,9 @@ class Main:
         """主菜单"""
         logger.debug("[MAIN] 进入主菜单")
 
+        if not await self.version_manager.check_version():
+            return None
+
         while True:
             retry = 0
             while not await self.user_manager.check_login_status():
@@ -53,7 +57,9 @@ class Main:
             self.active_client = await self.user_manager.get_client()
 
             logger.info(f"当前用户: {self.config.active_user}")
-            logger.warning(f"请通过本程序提供的 '退出' 选项关闭程序, 否则将无法完全退出 (或使用Ctrl+C快速退出)")
+            logger.warning(
+                f"请通过本程序提供的 '退出' 选项关闭程序, 否则将无法完全退出 (或使用Ctrl+C快速退出)"
+            )
 
             choice = await answer(
                 questionary.select(
