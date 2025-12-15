@@ -229,7 +229,12 @@ class HttpClient:
 
         try:
             # 获取内部客户端的Cookie
-            return dict(self.__client.cookies)
+            cookies = {}
+            for k, v in self.__client.cookies.items():
+                if k not in cookies:
+                    cookies[k] = v
+
+            return cookies
 
         except Exception as e:
             logger.error(f"{format_exc()}\n[HTTP] 获取cookies出错: {e}")
@@ -2582,8 +2587,8 @@ class VersionManager:
         self.version = "v1.0.9"  # 硬编码
         self.client = HttpClient()
 
-    async def get_latest_tag(self) -> str | None:
-        logger.debug("[MANAGER][VERSION] 获取最新版本号")
+    async def get_latest_tag(self, use_proxy: bool = True) -> str | None:
+        logger.debug("[MANAGER][VERSION][O] 获取最新版本号")
 
         try:
             # 构造 url
@@ -2598,20 +2603,21 @@ class VersionManager:
             ]
             proxy_url: str | None = None
 
-            # 检测 Github 代理
-            for proxy in proxy_urls:
-                logger.debug(f"[MANAGER][VERSION] 正在检测 Github 代理: {proxy}")
-                resp = await self.client.get(url=proxy, timeout=5)
-                if resp and resp.status_code < 500:
-                    proxy_url = proxy
-                    logger.info(f"使用 Github 代理: {proxy}")
-                    break
+            if use_proxy:
+                # 检测 Github 代理
+                for proxy in proxy_urls:
+                    logger.debug(f"[MANAGER][VERSION] 正在检测 Github 代理: {proxy}")
+                    resp = await self.client.get(url=proxy, timeout=5)
+                    if resp and resp.status_code < 500:
+                        proxy_url = proxy
+                        logger.info(f"使用 Github 代理: {proxy}")
+                        break
 
-            # 设置代理
-            if proxy_url:
-                url = proxy_url + url
-            else:
-                logger.warning("似乎没有可用的 Github 代理")
+                # 设置代理
+                if proxy_url:
+                    url = proxy_url + url
+                else:
+                    logger.warning("似乎没有可用的 Github 代理")
 
             resp = await self.client.get(url=url, timeout=8)
             if not resp or resp.status_code != 200:
@@ -2619,6 +2625,9 @@ class VersionManager:
                 logger.error(
                     f"[MANAGER][VERSION] 获取最新版本号时网络出错: HTTP {status_code}"
                 )
+                if use_proxy:
+                    logger.info("尝试直接访问 GitHub")
+                    return await self.get_latest_tag(use_proxy=False)
                 return None
 
             # 解析数据
@@ -2651,7 +2660,9 @@ class VersionManager:
                 return True if confirm else False
 
             if self.version < latest_tag:
-                logger.warning(f"检测到新版本 {latest_tag}, 当前版本: {self.version}, 请更新")
+                logger.warning(
+                    f"检测到新版本 {latest_tag}, 当前版本: {self.version}, 请更新"
+                )
                 logger.warning(
                     "请前往下载: https://github.com/ChinoKou/ULearningCWAuto/releases/latest"
                 )
