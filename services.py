@@ -965,12 +965,12 @@ class CourseManager:
             "返回",
         ]
         choices_map: dict[str, Callable] = {
-            "课件配置": self.__course_ware_config,
-            "开始刷课": self.__start_course_ware,
-            "查看刷课信息": self.__print_course_ware_info,
-            "删除课件": self.__remove_course_ware,
+            "课件配置": self.__courseware_config,
+            "开始刷课": self.__start_courseware,
+            "查看刷课信息": self.__print_courseware_info,
+            "删除课件": self.__remove_courseware,
             "修改刷课上报时长": self.__modify_study_time,
-            "清理已刷完课程": self.__prune_completed_course_ware,
+            "清理已刷完课程": self.__prune_completed_courseware,
             "解密同步学习记录请求数据": self.__decrypt_sync_study_record_request,
             "返回": lambda: None,
         }
@@ -1001,7 +1001,7 @@ class CourseManager:
             logger.error(f"{format_exc()}\n[MANAGER][COURSE] 课程管理菜单出现异常: {e}")
             return None
 
-    async def __course_ware_config(self) -> None:
+    async def __courseware_config(self) -> None:
         """课件配置"""
         logger.debug("[MANAGER][COURSE] 课件配置")
 
@@ -1127,12 +1127,12 @@ class CourseManager:
                 for course_id, course_info in selected_course_infos.items()
             }
 
-            await self.__complete_course_ware(course_config)
+            await self.__complete_courseware(course_config)
 
             self.user_config.courses = course_config
             self.config.save()
 
-            await self.__print_course_ware_info()
+            await self.__print_courseware_info()
 
             logger.success("课件配置成功, 请使用 '开始刷课' 启动刷课")
 
@@ -1140,7 +1140,7 @@ class CourseManager:
             logger.error(f"{format_exc()}\n[MANAGER][COURSE] 课件配置出错: {e}")
             return None
 
-    async def __complete_course_ware(
+    async def __complete_courseware(
         self, course_config: dict[int, ModelCourse]
     ) -> None:
         """获取教材详细信息, 章节信息, 节信息, 答案信息, 视频信息补全课程配置对象"""
@@ -1380,11 +1380,11 @@ class CourseManager:
             if not course_info.textbooks:
                 course_config.pop(course_id)
 
-    async def __start_course_ware_confirm(self) -> bool:
+    async def __start_courseware_confirm(self) -> bool:
         logger.debug("[MANAGER][COURSE] 开始刷课前确认")
 
         try:
-            await self.__print_course_ware_info()
+            await self.__print_courseware_info()
             logger.warning("请再次查看此次刷课信息, 并确认")
 
             while True:
@@ -1402,14 +1402,14 @@ class CourseManager:
                     )
                 )
                 if choice == choices[0]:
-                    await self.__prune_completed_course_ware()
+                    await self.__prune_completed_courseware()
                     return True
 
                 elif choice == choices[1]:
                     return True
 
                 elif choice == choices[2]:
-                    await self.__print_course_ware_info()
+                    await self.__print_courseware_info()
                     continue
 
                 elif choice == choices[3]:
@@ -1420,7 +1420,7 @@ class CourseManager:
         except Exception as e:
             return False
 
-    async def __start_course_ware(self) -> None:
+    async def __start_courseware(self) -> None:
         """开始刷课"""
         logger.debug("[MANAGER][COURSE] 开始刷课")
 
@@ -1429,7 +1429,7 @@ class CourseManager:
                 logger.warning("当前用户未配置课程")
                 return None
 
-            if not await self.__start_course_ware_confirm():
+            if not await self.__start_courseware_confirm():
                 return None
 
             user_info = await self.course_api.get_user_info()
@@ -1601,7 +1601,7 @@ class CourseManager:
             logger.error(f"{format_exc()}\n[MANAGER][COURSE] 刷课过程出现异常: {e}")
             return None
 
-    async def __print_course_ware_info(self) -> None:
+    async def __print_courseware_info(self) -> None:
         """查看刷课信息"""
         logger.debug("[MANAGER][COURSE] 查看刷课信息")
 
@@ -1671,7 +1671,7 @@ class CourseManager:
             logger.error(f"{format_exc()}\n[MANAGER][COURSE] 查看刷课信息出错: {e}")
             return None
 
-    async def __remove_course_ware(self) -> None:
+    async def __remove_courseware(self) -> None:
         """删除课件"""
         logger.debug("[MANAGER][COURSE] 删除课件")
 
@@ -1894,7 +1894,7 @@ class CourseManager:
 
             # 保存配置
             self.config.save()
-            await self.__print_course_ware_info()
+            await self.__print_courseware_info()
             logger.success("修改课件成功")
 
         except Exception as e:
@@ -1979,7 +1979,7 @@ class CourseManager:
             logger.error(f"{format_exc()}\n[MANAGER][COURSE] 修改刷课上报时长出错: {e}")
             return None
 
-    async def __prune_completed_course_ware(self) -> None:
+    async def __prune_completed_courseware(self) -> None:
         """清理已刷完课程"""
         logger.debug("[MANAGER][COURSE] 清理已刷完课程")
 
@@ -2071,7 +2071,7 @@ class CourseManager:
 
             # 保存配置
             self.config.save()
-            await self.__print_course_ware_info()
+            await self.__print_courseware_info()
             logger.success("成功清理已刷完课程")
 
         except Exception as e:
