@@ -1391,7 +1391,9 @@ class CourseManager:
         try:
             await self.__print_courseware_info()
             logger.warning("请再次查看此次刷课信息")
-            logger.warning("确认课件信息是否正确, 确认页面类型是否正确 (视频/题目/文档/纯文本)")
+            logger.warning(
+                "确认课件信息是否正确, 确认页面类型是否正确 (视频/题目/文档/纯文本)"
+            )
 
             while True:
                 choices = [
@@ -1603,7 +1605,12 @@ class CourseManager:
                             # 冷却
                             await asyncio.sleep(self.config.sleep_time)
 
+            # 删除已完成的课件
+            await self.__prune_completed_courseware()
+            if self.user_config.courses:
+                logger.warning("似乎还有课件没刷完")
 
+            logger.success("刷课流程已结束")
 
         except Exception as e:
             logger.error(f"{format_exc()}\n[MANAGER][COURSE] 刷课过程出现异常: {e}")
@@ -1877,10 +1884,15 @@ class CourseManager:
                             logger.info(f"[节] 正在处理 '{section_name}'")
 
                             # 创建页面选择
-                            page_choices = [
-                                f"[{page_id}] {page_info.page_name}"
-                                for page_id, page_info in pages.items()
-                            ]
+                            page_choices = []
+                            for page_id, page_info in pages.items():
+                                page_is_complete = page_info.is_complete
+                                page_complete_status = (
+                                    "完成" if page_is_complete else "未完成"
+                                )
+                                page_choices.append(
+                                    f"[{page_complete_status}][{page_id}] {page_info.page_name}"
+                                )
 
                             # 获取用户选择的页面ID列表
                             raw_selected_page_ids: list[str] = await answer(
@@ -1894,7 +1906,7 @@ class CourseManager:
 
                             # 解析页面ID列表
                             selected_page_ids = [
-                                int(page_id.split("]")[0].split("[")[1].strip())
+                                int(page_id.split("][")[1].split("]")[0].strip())
                                 for page_id in raw_selected_page_ids
                             ]
 
