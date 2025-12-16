@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from traceback import format_exc
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Annotated, Literal, Self
 
 from loguru import logger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Discriminator, Field
 
 if TYPE_CHECKING:
     from api import LoginAPI
@@ -354,7 +354,7 @@ class ChapterInfoAPIResponse(BaseAPIResponse):
 
                 coursepageDTOid: int
                 """元素ID = element_id"""
-                type: int
+                # type: int
                 """
                 元素类型
                 6: "Question",
@@ -370,11 +370,11 @@ class ChapterInfoAPIResponse(BaseAPIResponse):
                 skipVideoTitle: int
                 note: str
                 resourceFullurl: str | None = None
-                answertime: int | None = None
 
             class ContentPageDTO(BasePageDTO):
                 """内容元素数据模型"""
 
+                type: Literal[12]
                 content: str
                 """内容"""
 
@@ -383,6 +383,7 @@ class ChapterInfoAPIResponse(BaseAPIResponse):
             class VideoPageDTO(BasePageDTO):
                 """视频元素数据模型"""
 
+                type: Literal[4]
                 videoLength: int
                 """视频长度 = video_length"""
                 resourceid: int
@@ -391,6 +392,8 @@ class ChapterInfoAPIResponse(BaseAPIResponse):
                 resourceContentSize: int
                 videoQuestionDTOList: list
                 knowledgeResourceDTOS: list
+                videoCover: str | None = None
+                srtDTO: dict | None = None
 
             class QuestionPageDTO(BasePageDTO):
                 """问题元素数据模型"""
@@ -429,18 +432,20 @@ class ChapterInfoAPIResponse(BaseAPIResponse):
                     blankOrder: int
                     choiceitemModels: list[choiceitemModel] | None = None
                     tagList: list
-                    srtDTO: dict | None = None
                     link: str | None = None
                     linkList: list | None = None
                     linkOptionList: dict | None = None
                     relatedTextbookChapterDTOList: list
 
+                type: Literal[6]
                 content: str
+                answertime: int | None = None
                 questionDTOList: list[QuestionDTO]
 
             class DocumentPageDTO(BasePageDTO):
                 """文档数据模型"""
 
+                type: Literal[10]
                 content: str
                 """内容"""
 
@@ -468,7 +473,10 @@ class ChapterInfoAPIResponse(BaseAPIResponse):
             qrcode: int
 
             coursepageDTOList: list[
-                ContentPageDTO | DocumentPageDTO | VideoPageDTO | QuestionPageDTO
+                Annotated[
+                    ContentPageDTO | DocumentPageDTO | VideoPageDTO | QuestionPageDTO,
+                    Field(discriminator=Discriminator("type")),
+                ]
             ]
             """元素列表"""
 

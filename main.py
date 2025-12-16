@@ -56,10 +56,8 @@ class Main:
 
             self.active_client = await self.user_manager.get_client()
 
+            logger.warning(f"请尽量通过 '退出' 选项关闭程序, 或多次按下 Ctrl+C 快速退出")
             logger.info(f"当前用户: {self.config.active_user}")
-            logger.warning(
-                f"请通过本程序提供的 '退出' 选项关闭程序, 否则将无法完全退出 (或使用Ctrl+C快速退出)"
-            )
 
             choice = await answer(
                 questionary.select(

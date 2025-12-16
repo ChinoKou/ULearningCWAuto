@@ -1390,7 +1390,8 @@ class CourseManager:
 
         try:
             await self.__print_courseware_info()
-            logger.warning("请再次查看此次刷课信息, 并确认")
+            logger.warning("请再次查看此次刷课信息")
+            logger.warning("确认课件信息是否正确, 确认页面类型是否正确 (视频/题目/文档/纯文本)")
 
             while True:
                 choices = [
@@ -1602,6 +1603,8 @@ class CourseManager:
                             # 冷却
                             await asyncio.sleep(self.config.sleep_time)
 
+
+
         except Exception as e:
             logger.error(f"{format_exc()}\n[MANAGER][COURSE] 刷课过程出现异常: {e}")
             return None
@@ -1622,6 +1625,7 @@ class CourseManager:
 
             # 遍历课程
             for course_id, course_info in courses.items():
+                logger.info("")
                 logger.info(f"[课程][{course_id}] '{course_info.course_name}'")
 
                 # 创建引用
@@ -1629,6 +1633,7 @@ class CourseManager:
 
                 # 遍历教材
                 for textbook_id, textbook_info in textbooks.items():
+                    logger.info("")
                     logger.info(
                         f" [教材][{textbook_id}] '{textbook_info.textbook_name}'"
                     )
@@ -1638,6 +1643,7 @@ class CourseManager:
 
                     # 遍历章节
                     for chapter_id, chapter_info in chapters.items():
+                        logger.info("")
                         logger.info(f"   [章] '{chapter_info.chapter_name}'")
 
                         # 创建引用
@@ -1645,6 +1651,7 @@ class CourseManager:
 
                         # 遍历节
                         for section_id, section_info in sections.items():
+                            logger.info("")
                             logger.info(f"     [节] '{section_info.section_name}'")
 
                             # 创建引用
@@ -1652,12 +1659,25 @@ class CourseManager:
 
                             # 遍历页面
                             for page_id, page_info in pages.items():
+                                # 创建引用
+                                page_content_type = page_info.page_content_type
+                                page_is_complete = page_info.is_complete
+
+                                page_type_map = {
+                                    5: "文档/纯文本(Doc/Content)",
+                                    6: "视频(Video)",
+                                    7: "题目(Question)",
+                                }
                                 complete_status = (
-                                    "已刷完" if page_info.is_complete else "未完成"
+                                    "已刷完" if page_is_complete else "未完成"
                                 )
-                                logger.info(
-                                    f"       [{complete_status}] '{page_info.page_name}'"
-                                )
+                                page_type = ""
+                                page_text = f"       [{complete_status}][{page_type_map[page_content_type]}] '{page_info.page_name}'"
+                                if page_is_complete:
+                                    logger.success(page_text)
+                                else:
+                                    logger.warning(page_text)
+
             print("=" * 100)
             config_type_choice_map = {
                 "question": "题目类型",
@@ -2584,10 +2604,12 @@ class VersionManager:
     """版本管理类"""
 
     def __init__(self) -> None:
-        self.version = "v1.1.0"  # 硬编码
+        self.tag = "v1.1.1"  # 硬编码
         self.client = HttpClient()
 
-    async def get_latest_tag(self, use_proxy: bool = True) -> str | None:
+    async def get_latest_info(
+        self, use_proxy: bool = True
+    ) -> tuple[str | None, str | None] | None:
         logger.debug("[MANAGER][VERSION][O] 获取最新版本号")
 
         try:
@@ -2610,7 +2632,7 @@ class VersionManager:
                     resp = await self.client.get(url=proxy, timeout=5)
                     if resp and resp.status_code < 500:
                         proxy_url = proxy
-                        logger.info(f"使用 Github 代理: {proxy}")
+                        logger.debug(f"[MANAGER][VERSION] 使用 Github 代理: {proxy}")
                         break
 
                 # 设置代理
@@ -2627,16 +2649,17 @@ class VersionManager:
                 )
                 if use_proxy:
                     logger.info("尝试直接访问 GitHub")
-                    return await self.get_latest_tag(use_proxy=False)
+                    return await self.get_latest_info(use_proxy=False)
                 return None
 
             # 解析数据
             resp_body: dict = resp.json()
-            tag_name: str | None = resp_body.get("tag_name")
+            release_tag: str | None = resp_body.get("tag_name")
+            release_content: str | None = resp_body.get("body")
 
             logger.debug(f"[MANAGER][VERSION][✓] 获取最新版本号")
 
-            return tag_name
+            return release_tag, release_content
 
         except Exception as e:
             logger.error(
@@ -2647,25 +2670,35 @@ class VersionManager:
     async def check_version(self) -> bool:
         logger.debug("[MANAGER][VERSION] 检查版本")
 
-        try:
-            logger.info("正在检查更新")
-            latest_tag = await self.get_latest_tag()
-            if not latest_tag:
-                logger.error("检查版本更新失败")
-                confirm = await answer(
-                    questionary.confirm(
-                        message="是否跳过版本检查继续运行?", default=False
-                    )
-                )
-                return True if confirm else False
+        async def check_fail() -> bool:
+            logger.error("检查版本更新失败")
+            confirm = await answer(
+                questionary.confirm(message="是否跳过版本检查继续运行?", default=False)
+            )
+            if confirm:
+                logger.warning("已跳过版本检查, 建议手动检查版本")
+                return True
+            return False
 
-            if self.version < latest_tag:
+        try:
+            logger.info(f"正在检查更新, 当前版本: {self.tag}")
+            latest_info = await self.get_latest_info()
+            if not latest_info:
+                return await check_fail()
+
+            latest_release_tag, latest_release_content = latest_info
+            if not latest_release_tag or not latest_release_content:
+                return await check_fail()
+
+            if self.tag < latest_release_tag:
                 logger.warning(
-                    f"检测到新版本 {latest_tag}, 当前版本: {self.version}, 请更新"
+                    f"检测到新版本 {latest_release_tag}, 当前版本: {self.tag}"
                 )
                 logger.warning(
-                    "请前往下载: https://github.com/ChinoKou/ULearningCWAuto/releases/latest"
+                    "请前往下载新版本: https://github.com/ChinoKou/ULearningCWAuto/releases/latest"
                 )
+                logger.info(f"版本 {latest_release_tag} 发布信息如下: ")
+                print(latest_release_content)
                 return False
 
             else:
