@@ -2629,7 +2629,7 @@ class VersionManager:
     """版本管理类"""
 
     def __init__(self) -> None:
-        self.tag = "v1.1.1"  # 硬编码
+        self.tag = "v1.1.2"  # 硬编码
         self.client = HttpClient()
 
     async def get_latest_info(
