@@ -42,7 +42,7 @@ class ElementContent(BaseModel):
     content_content: str
 
 
-class CourseWarePage(BaseModel):
+class CoursewarePage(BaseModel):
     """课件第三层-页面 数据模型"""
 
     page_id: int
@@ -60,12 +60,12 @@ class CourseWarePage(BaseModel):
     )
 
 
-class CourseWareSection(BaseModel):
+class CoursewareSection(BaseModel):
     """课件第二层-节 数据模型"""
 
     section_id: int
     section_name: str
-    pages: dict[int, CourseWarePage] = Field(default_factory=dict)
+    pages: dict[int, CoursewarePage] = Field(default_factory=dict)
 
     def prune(self) -> None:
         """清理已刷完的页面"""
@@ -74,12 +74,12 @@ class CourseWareSection(BaseModel):
                 self.pages.pop(page_id)
 
 
-class CourseWareChapter(BaseModel):
+class CoursewareChapter(BaseModel):
     """课件第一层-章 数据模型"""
 
     chapter_id: int
     chapter_name: str
-    sections: dict[int, CourseWareSection] = Field(default_factory=dict)
+    sections: dict[int, CoursewareSection] = Field(default_factory=dict)
 
     def prune(self, remove_complete: bool = False) -> None:
         """清理已刷完的节和空节"""
@@ -97,7 +97,7 @@ class ModelTextbook(BaseModel):
     textbook_name: str
     status: int
     limit: int
-    chapters: dict[int, CourseWareChapter] = Field(default_factory=dict)
+    chapters: dict[int, CoursewareChapter] = Field(default_factory=dict)
 
     def prune(self, remove_complete: bool = False) -> None:
         """清理已刷完的章"""
@@ -196,7 +196,7 @@ class SyncStudyRecordAPIRequest(BaseModel):
             """当前播放视频的进度"""
             status: int = 1
             """完成状态 0: 未完成 1: 已完成"""
-            recordTime: int
+            recordTime: float
             """已记录的播放了视频的时长"""
             time: float
             """视频长度 = video_length"""

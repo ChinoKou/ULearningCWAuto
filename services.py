@@ -16,9 +16,9 @@ from models import (
     ConfigModel,
     CourseAPIUserInfoAPIResponse,
     CourseListAPIResponse,
-    CourseWareChapter,
-    CourseWarePage,
-    CourseWareSection,
+    CoursewareChapter,
+    CoursewarePage,
+    CoursewareSection,
     ElementContent,
     ElementDocumen,
     ElementQuestion,
@@ -1295,7 +1295,7 @@ class CourseManager:
                     # 遍历节
                     for section_id, section_info in sections.items():
                         # 创建引用
-                        pages: dict[int, CourseWarePage] = section_info.pages
+                        pages: dict[int, CoursewarePage] = section_info.pages
 
                         # 遍历页面
                         for page_id, page_info in pages.items():
@@ -1446,6 +1446,162 @@ class CourseManager:
         logger.debug("[MANAGER][COURSE] 开始刷课")
 
         try:
+
+            async def courseware_handler(
+                chapters: dict[int, CoursewareChapter],
+                user_info: CourseAPIUserInfoAPIResponse,
+                is_first: bool,
+            ) -> None:
+                """
+                内部处理课件函数
+                
+                :param chapters: 章节信息字典
+                :type chapters: dict[int, CoursewareChapter]
+                :param user_info: 用户信息对象
+                :type user_info: CourseAPIUserInfoAPIResponse
+                :param is_first: 是否为第一次处理课件
+                :type is_first: bool
+                """
+
+                # 遍历章
+                for chapter_id, chapter_info in chapters.items():
+                    # 创建引用
+                    chapter_name = chapter_info.chapter_name
+                    sections = chapter_info.sections
+
+                    logger.info(f"[章][{chapter_id}] 开始处理 '{chapter_name}'")
+
+                    # 遍历节
+                    for section_id, section_info in sections.items():
+                        # 初始化课件-节, 获取开始学习的时间戳
+                        study_start_time = await self.course_api.initialize_section(
+                            section_id=section_id
+                        )
+
+                        # 初始化失败
+                        if not study_start_time:
+                            logger.warning(
+                                f"初始化节 '{section_info.section_name}' 失败, 跳过"
+                            )
+                            continue
+
+                        # 创建引用
+                        pages = section_info.pages
+
+                        # 遍历页面
+                        for page_id, page_info in pages.items():
+                            # 如果页面类型为视频
+                            if page_info.page_content_type == 6:
+
+                                # 收集上报视频观看行为的协程对象列表
+                                coros_watch_video_behavior = []
+                                for element_info in page_info.elements:
+                                    # 跳过非视频元素
+                                    if not isinstance(element_info, ElementVideo):
+                                        continue
+                                    # 创建引用
+                                    video_id = element_info.video_id
+                                    coros_watch_video_behavior.append(
+                                        self.course_api.watch_video_behavior(
+                                            class_id=class_id,
+                                            textbook_id=textbook_id,
+                                            chapter_id=chapter_id,
+                                            video_id=video_id,
+                                        )
+                                    )
+
+                                # 异步调度
+                                results_watch_video_behavior = await asyncio.gather(
+                                    *coros_watch_video_behavior
+                                )
+
+                                # 解析异步调度信息
+                                parsed_watch_video_behaviors: dict[int, bool] = {}
+                                for result in results_watch_video_behavior:
+                                    for video_id, watch_status in result.items():
+                                        parsed_watch_video_behaviors[video_id] = (
+                                            watch_status
+                                        )
+
+                                # 遍历所有元素
+                                for element_info in page_info.elements:
+
+                                    # 跳过非视频元素
+                                    if not isinstance(element_info, ElementVideo):
+                                        continue
+
+                                    # 创建引用
+                                    video_id = element_info.video_id
+
+                                    # 上报视频观看行为, 疑似是用来前端防多开
+                                    watch_status = parsed_watch_video_behaviors[
+                                        video_id
+                                    ]
+
+                                    if not watch_status:
+                                        logger.warning(
+                                            f"[视频][{video_id}] 上报观看行为失败"
+                                        )
+
+                                    else:
+                                        logger.success(
+                                            f"[视频][{video_id}] 上报观看行为成功"
+                                        )
+
+                                    # 休眠 0.3s
+                                    await asyncio.sleep(0.3)
+
+                        # 为该 节 创建学习记录请求
+                        logger.info(f"[节][{section_id}] 开始构造同步学习记录请求")
+                        retry = 0
+                        while True:
+                            # 构造同步学习记录请求
+                            study_record_info = (
+                                self.data_manager.build_sync_study_record_request(
+                                    study_start_time=study_start_time,
+                                    section_info=section_info,
+                                    user_info=user_info,
+                                    study_time_config=self.config.study_time,
+                                    is_first=is_first,
+                                )
+                            )
+
+                            # 构建失败
+                            if not study_record_info:
+                                logger.warning(f"构建请求信息失败, 跳过")
+                                break
+
+                            logger.info(f"[节][{section_id}] 开始上报学习记录")
+
+                            # 上报学习记录
+                            sync_status = await self.course_api.sync_study_record(
+                                study_record_info=study_record_info
+                            )
+
+                            # 重试过多
+                            if retry >= 3:
+                                logger.warning(
+                                    f"[节][{section_id}] 尝试重试上报学习记录失败, 跳过"
+                                )
+                                break
+
+                            # 上报失败
+                            if not sync_status:
+                                logger.warning(f"[节][{section_id}] 上报学习记录失败")
+
+                            # 上报成功
+                            else:
+                                logger.success(f"[节][{section_id}] 上报学习记录成功")
+                                break
+
+                            retry += 1
+                            await asyncio.sleep(1)
+
+                        # 第二次才冷却
+                        if not is_first:
+                            # 冷却
+                            await asyncio.sleep(self.config.sleep_time)
+
             if not self.user_config.courses:
                 logger.warning("当前用户未配置课程")
                 return None
@@ -1469,154 +1625,39 @@ class CourseManager:
                 textbooks = course_info.textbooks
 
                 logger.info(f"[课程][{course_id}] 开始处理 '{course_name}'")
-
                 # 遍历教材
                 for textbook_id, textbook_info in textbooks.items():
                     # 创建引用
                     textbook_name = textbook_info.textbook_name
                     chapters = textbook_info.chapters
 
-                    logger.info(f"[教材][{textbook_id}] 开始处理 '{textbook_name}'")
+                    # 第一次处理
+                    logger.info(
+                        f"[教材][{textbook_id}] 开始第一次处理 '{textbook_name}'"
+                    )
+                    await courseware_handler(
+                        chapters=chapters, user_info=user_info, is_first=True
+                    )
 
-                    # 遍历章
-                    for chapter_id, chapter_info in chapters.items():
-                        # 创建引用
-                        chapter_name = chapter_info.chapter_name
-                        sections = chapter_info.sections
+                    # 刷新教材信息
+                    logger.info(
+                        f"[教材][{textbook_id}] 尝试刷新 '{textbook_name}', 可能耗时较长(<30s)"
+                    )
+                    refresh_status = await self.course_api.textbook_information(
+                        course_id=course_id, textbook_id=textbook_id
+                    )
+                    if refresh_status:
+                        logger.success(f"[教材][{textbook_id}] 刷新成功")
+                    else:
+                        logger.warning(f"[教材][{textbook_id}] 刷新失败")
 
-                        logger.info(f"[章][{chapter_id}] 开始处理 '{chapter_name}'")
-
-                        # 遍历节
-                        for section_id, section_info in sections.items():
-                            # 初始化课件-节, 获取开始学习的时间戳
-                            study_start_time = await self.course_api.initialize_section(
-                                section_id=section_id
-                            )
-
-                            # 初始化失败
-                            if not study_start_time:
-                                logger.warning(
-                                    f"初始化节 '{section_info.section_name}' 失败, 跳过"
-                                )
-                                continue
-
-                            # 创建引用
-                            pages = section_info.pages
-
-                            # 遍历页面
-                            for page_id, page_info in pages.items():
-                                # 如果页面类型为视频
-                                if page_info.page_content_type == 6:
-
-                                    # 收集上报视频观看行为的协程对象列表
-                                    coros_watch_video_behavior = []
-                                    for element_info in page_info.elements:
-                                        # 跳过非视频元素
-                                        if not isinstance(element_info, ElementVideo):
-                                            continue
-                                        # 创建引用
-                                        video_id = element_info.video_id
-                                        coros_watch_video_behavior.append(
-                                            self.course_api.watch_video_behavior(
-                                                class_id=class_id,
-                                                textbook_id=textbook_id,
-                                                chapter_id=chapter_id,
-                                                video_id=video_id,
-                                            )
-                                        )
-
-                                    # 异步调度
-                                    results_watch_video_behavior = await asyncio.gather(
-                                        *coros_watch_video_behavior
-                                    )
-
-                                    # 解析异步调度信息
-                                    parsed_watch_video_behaviors: dict[int, bool] = {}
-                                    for result in results_watch_video_behavior:
-                                        for video_id, watch_status in result.items():
-                                            parsed_watch_video_behaviors[video_id] = (
-                                                watch_status
-                                            )
-
-                                    # 遍历所有元素
-                                    for element_info in page_info.elements:
-
-                                        # 跳过非视频元素
-                                        if not isinstance(element_info, ElementVideo):
-                                            continue
-
-                                        # 创建引用
-                                        video_id = element_info.video_id
-
-                                        # 上报视频观看行为, 疑似是用来前端防多开
-                                        watch_status = parsed_watch_video_behaviors[
-                                            video_id
-                                        ]
-
-                                        if not watch_status:
-                                            logger.warning(
-                                                f"[视频][{video_id}] 上报观看行为失败"
-                                            )
-
-                                        else:
-                                            logger.success(
-                                                f"[视频][{video_id}] 上报观看行为成功"
-                                            )
-
-                                        # 休眠 0.3s
-                                        await asyncio.sleep(0.3)
-
-                            # 为该 节 创建学习记录请求
-                            logger.info(f"[节][{section_id}] 开始构造同步学习记录请求")
-                            retry = 0
-                            while True:
-                                # 构造同步学习记录请求
-                                study_record_info = (
-                                    self.data_manager.build_sync_study_record_request(
-                                        study_start_time=study_start_time,
-                                        section_info=section_info,
-                                        user_info=user_info,
-                                        study_time_config=self.config.study_time,
-                                    )
-                                )
-
-                                # 构建失败
-                                if not study_record_info:
-                                    logger.warning(f"构建请求信息失败, 跳过")
-                                    break
-
-                                logger.info(f"[节][{section_id}] 开始上报学习记录")
-
-                                # 上报学习记录
-                                sync_status = await self.course_api.sync_study_record(
-                                    study_record_info=study_record_info
-                                )
-
-                                # 重试过多
-                                if retry >= 3:
-                                    logger.warning(
-                                        f"[节][{section_id}] 尝试重试上报学习记录失败, 跳过"
-                                    )
-                                    break
-
-                                # 上报失败
-                                if not sync_status:
-                                    logger.warning(
-                                        f"[节][{section_id}] 上报学习记录失败"
-                                    )
-
-                                # 上报成功
-                                else:
-                                    logger.success(
-                                        f"[节][{section_id}] 上报学习记录成功"
-                                    )
-                                    break
-
-                                retry += 1
-                                await asyncio.sleep(1)
-
-                            # 冷却
-                            await asyncio.sleep(self.config.sleep_time)
+                    # 第二次处理
+                    logger.info(
+                        f"[教材][{textbook_id}] 开始第二次处理 '{textbook_name}'"
+                    )
+                    await courseware_handler(
+                        chapters=chapters, user_info=user_info, is_first=False
+                    )
 
             # 删除已完成的课件
             await self.__prune_completed_courseware()
@@ -2189,7 +2230,7 @@ class DataManager:
                     continue
 
                 # 初始化配置文件课件章节对象
-                course_config_chapters[chapter_id] = CourseWareChapter(
+                course_config_chapters[chapter_id] = CoursewareChapter(
                     chapter_id=chapter_id,
                     chapter_name=chapter_name,
                 )
@@ -2210,7 +2251,7 @@ class DataManager:
                         continue
 
                     # 初始化配置文件课件节对象
-                    course_config_sections[section_id] = CourseWareSection(
+                    course_config_sections[section_id] = CoursewareSection(
                         section_id=section_id,
                         section_name=section_name,
                     )
@@ -2227,7 +2268,7 @@ class DataManager:
                         page_content_type = page_info.contentType
 
                         # 初始化配置文件课件页面对象
-                        course_config_pages[page_id] = CourseWarePage(
+                        course_config_pages[page_id] = CoursewarePage(
                             page_id=page_id,
                             page_relation_id=page_relation_id,
                             page_name=page_name,
@@ -2420,9 +2461,10 @@ class DataManager:
     def build_sync_study_record_request(
         self,
         study_start_time: int,
-        section_info: CourseWareSection,
+        section_info: CoursewareSection,
         user_info: CourseAPIUserInfoAPIResponse,
         study_time_config: ConfigModel.StudyTime,
+        is_first: bool = False,
     ) -> SyncStudyRecordAPIRequest | None:
         """
         构造同步学习记录请求
@@ -2430,11 +2472,13 @@ class DataManager:
         :param study_start_time: 初始化返回的学习开始时间戳(s)
         :type study_start_time: int
         :param section_info: 节信息
-        :type section_info: CourseWareSection
+        :type section_info: CoursewareSection
         :param user_info: 获取用户信息API响应数据模型
         :type user_info: CourseAPIUserInfoAPIResponse
         :param study_time_config: 配置文件中的学习时间配置
         :type study_time_config: ConfigModel.StudyTime
+        :param is_first: 是否为首次同步学习记录
+        :type is_first: bool
         :return: 同步学习记录请求数据模型
         :rtype: SyncStudyRecordAPIRequest | None
         """
@@ -2540,7 +2584,7 @@ class DataManager:
                             VideoDTO(
                                 videoid=video_id,
                                 current=video_watch_time,
-                                recordTime=int(video_watch_time),
+                                recordTime=video_watch_time,
                                 time=video_length,
                                 startEndTimeList=[
                                     StartEndTime(
@@ -2600,7 +2644,9 @@ class DataManager:
                 page_study_record_dto_list.append(
                     PageStudyRecordDTO(
                         pageid=page_relation_id,
-                        studyTime=page_study_time,
+                        studyTime=(
+                            0 if is_first else page_study_time
+                        ),  # 首次不上报学习时长
                         score=page_score,
                         coursepageId=(
                             page_id if page_study_record_dto_questions else None
@@ -2629,7 +2675,7 @@ class VersionManager:
     """版本管理类"""
 
     def __init__(self) -> None:
-        self.tag = "v1.1.2"  # 硬编码
+        self.tag = "v1.1.3"  # 硬编码
         self.client = HttpClient()
 
     async def get_latest_info(

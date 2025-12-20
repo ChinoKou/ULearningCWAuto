@@ -536,3 +536,47 @@ class CourseAPI:
         except Exception as e:
             logger.error(f"{format_exc()}\n[API] 上报学习记录时出错: {e}")
             return False
+
+    async def textbook_information(self, course_id: int, textbook_id: int) -> bool:
+        """
+        教材信息API
+
+        :param course_id: 课程ID
+        :type course_id: int
+        :param textbook_id: 教材ID
+        :type textbook_id: int
+        :return: 是否获取成功
+        :rtype: bool
+        """
+        logger.debug(f"[API][O] 教材信息 课程 ID - {course_id} 教材 ID - {textbook_id}")
+
+        try:
+            # 构造 url 与请求体
+            url = f"{self.api.course_api}/textbook/student/information"
+            params = {
+                "currentPlatformType": 1,
+                "ocId": course_id,
+                "textbookId": textbook_id,
+                "lang": "zh",
+            }
+
+            resp = await self.client.get(url=url, params=params, timeout=30)
+            if not resp or resp.status_code != 200:
+                status_code = resp.status_code if resp else None
+                logger.error(f"[API] 教材信息时网络出错: HTTP {status_code}")
+                return False
+
+            logger.debug(
+                f"[API][✓] 教材信息 课程 ID - {course_id} 教材 ID - {textbook_id}"
+            )
+
+            resp_body = resp.json()
+            if not resp_body.get("textbook") or not resp_body.get("list"):
+                logger.warning("[API] 教材信息失败")
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"{format_exc()}\n[API] 教材信息时出错: {e}")
+            return False
