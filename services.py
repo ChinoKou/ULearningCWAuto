@@ -243,9 +243,9 @@ class HttpClient:
         try:
             # 获取内部客户端的Cookie
             cookies = {}
-            for k, v in self.__client.cookies.items():
-                if k not in cookies:
-                    cookies[k] = v
+            for cookie in self.__client.cookies.jar:
+                if cookie.name not in cookies:
+                    cookies[cookie.name] = cookie.value
 
             return cookies
 
