@@ -48,20 +48,20 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           source .venv/bin/activate
-          python -m nuitka --onefile --standalone --assume-yes-for-downloads --lto=yes --jobs=$(nproc) --enable-plugin=upx --output-filename=ULearningCWAuto-${{ matrix.platform }}-${{ github.ref_name }}${{ matrix.ext }} main.py
+          python -m nuitka --onefile --standalone --assume-yes-for-downloads --lto=yes --jobs=$(nproc) --enable-plugin=upx --output-filename=UCourseAuto_${{ matrix.platform }}_${{ github.ref_name }}${{ matrix.ext }} main.py
 
       - name: Build (Windows)
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
           .venv\Scripts\Activate.ps1
-          python -m nuitka --standalone --onefile --assume-yes-for-downloads --lto=yes --jobs=3 --enable-plugin=upx --onefile-no-compression --output-filename=ULearningCWAuto-${{ matrix.platform }}-${{ github.ref_name }}${{ matrix.ext }} main.py
+          python -m nuitka --standalone --onefile --assume-yes-for-downloads --lto=yes --jobs=3 --enable-plugin=upx --onefile-no-compression --output-filename=UCourseAuto_${{ matrix.platform }}_${{ github.ref_name }}${{ matrix.ext }} main.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
-          name: ULearningCWAuto-${{ matrix.platform }}
-          path: ULearningCWAuto-${{ matrix.platform }}-${{ github.ref_name }}${{ matrix.ext }}
+          name: UCourseAuto_${{ matrix.platform }}
+          path: UCourseAuto_${{ matrix.platform }}_${{ github.ref_name }}${{ matrix.ext }}
           retention-days: 1
 
   release:
@@ -85,7 +85,7 @@ jobs:
           prerelease: false
           generate_release_notes: true
           files: |
-            ./artifacts/ULearningCWAuto-linux/*
-            ./artifacts/ULearningCWAuto-windows/*
+            ./artifacts/UCourseAuto_linux/*
+            ./artifacts/UCourseAuto_windows/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -34,20 +34,20 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           source .venv/bin/activate
-          pyinstaller --onefile --name ULearningCWAuto-${{ matrix.platform }}-beta main.py
+          pyinstaller --onefile --name UCourseAuto_${{ matrix.platform }}_beta${{ matrix.ext }} main.py
 
       - name: Build (Windows)
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
           .venv\Scripts\Activate.ps1
-          pyinstaller --onefile --name ULearningCWAuto-${{ matrix.platform }}-beta main.py
+          pyinstaller --onefile --name UCourseAuto_${{ matrix.platform }}_beta${{ matrix.ext }} main.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
-          name: ULearningCWAuto-${{ matrix.platform }}
-          path: dist/ULearningCWAuto-${{ matrix.platform }}-beta${{ matrix.ext }}
+          name: UCourseAuto_${{ matrix.platform }}
+          path: dist/UCourseAuto_${{ matrix.platform }}_beta${{ matrix.ext }}
           retention-days: 1
 
   release:
@@ -77,9 +77,9 @@ jobs:
           name: Beta
           prerelease: true
           body: |
-            ## ULearningCWAuto Beta
+            ## UCourseAuto Beta
           files: |
-            ./artifacts/ULearningCWAuto-linux/*
-            ./artifacts/ULearningCWAuto-windows/*
+            ./artifacts/UCourseAuto_linux/*
+            ./artifacts/UCourseAuto_windows/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

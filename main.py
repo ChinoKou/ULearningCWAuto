@@ -99,7 +99,7 @@ class Main:
 if __name__ == "__main__":
     try:
         set_logger()
-        logger.info("程序开源地址: https://github.com/ChinoKou/ULearningCWAuto")
+        logger.info("程序开源地址: https://github.com/ChinoKou/UCourseAuto")
         main = Main()
         asyncio.run(main.menu())
 

@@ -1,8 +1,8 @@
-# ULearningCWAuto
+# UCourseAuto
 
-## What is ULearningCWAuto?
+## What is UCourseAuto?
 
-ULearningCWAuto is an automated CLI tool for completing courseware on the ULearning platform.
+UCourseAuto is an automated CLI tool for completing courseware on the ULearning platform.
 
 ## Features
 
@@ -21,7 +21,7 @@ ULearningCWAuto is an automated CLI tool for completing courseware on the ULearn
 
 ## Usage
 
-- Download the [latest release](https://github.com/ChinoKou/ULearningCWAuto/releases/latest) binary from the releases page and run it directly
+- Download the [latest release](https://github.com/ChinoKou/UCourseAuto/releases/latest) binary from the releases page and run it directly
 - Clone the repository and run with Python 3.12+ directly
 
 ## How It Works

@@ -72,7 +72,12 @@ class HttpClient:
             self.__client.cookies.update(cookies)
 
     async def get(
-        self, url: str, params: dict | None = None, timeout: int = 15, retry: int = 0
+        self,
+        url: str,
+        params: dict | None = None,
+        timeout: int = 8,
+        retry: int = 0,
+        follow_redirects: bool = False,
     ) -> httpx.Response | None:
         """
         发送GET请求
@@ -85,6 +90,8 @@ class HttpClient:
         :type timeout: int
         :param retry: 递归调用重试次数
         :type retry: int
+        :param follow_redirects: 是否跟随重定向
+        :type follow_redirects: bool
         :return: 响应体
         :rtype: Response | None
         """
@@ -95,7 +102,9 @@ class HttpClient:
         logger.debug(f"[HTTP][GET] {url_log}")
 
         try:
-            return await self.__client.get(url, params=params, timeout=timeout)
+            return await self.__client.get(
+                url, params=params, timeout=timeout, follow_redirects=follow_redirects
+            )
 
         except httpx.TransportError as e:
             logger.error(f"[HTTP][GET] 网络错误: {e}")
@@ -118,8 +127,9 @@ class HttpClient:
         params: dict | None = None,
         json: dict | None = None,
         data: dict | None = None,
-        timeout: int = 15,
+        timeout: int = 8,
         retry: int = 0,
+        follow_redirects: bool = False,
     ) -> httpx.Response | None:
         """
         发送POST请求
@@ -138,6 +148,8 @@ class HttpClient:
         :type timeout: int
         :param retry: 递归调用重试次数
         :type retry: int
+        :param follow_redirects: 是否跟随重定向
+        :type follow_redirects: bool
         :return: 响应体
         :rtype: Response | None
         """
@@ -151,6 +163,7 @@ class HttpClient:
                 json=json,
                 data=data,
                 timeout=timeout,
+                follow_redirects=follow_redirects,
             )
 
         except httpx.TransportError as e:
@@ -2626,9 +2639,7 @@ class VersionManager:
 
         try:
             # 构造 url
-            url = (
-                "https://api.github.com/repos/ChinoKou/ULearningCWAuto/releases/latest"
-            )
+            url = "https://api.github.com/repos/ChinoKou/UCourseAuto/releases/latest"
             proxy_urls = [
                 "https://gh-proxy.org/",
                 "https://hk.gh-proxy.org/",
@@ -2653,7 +2664,7 @@ class VersionManager:
                 else:
                     logger.warning("似乎没有可用的 Github 代理")
 
-            resp = await self.client.get(url=url, timeout=8)
+            resp = await self.client.get(url=url, timeout=5, follow_redirects=True)
             if not resp or resp.status_code != 200:
                 status_code = resp.status_code if resp else None
                 logger.error(
@@ -2707,7 +2718,7 @@ class VersionManager:
                     f"检测到新版本 {latest_release_tag}, 当前版本: {self.tag}"
                 )
                 logger.warning(
-                    "请前往下载新版本: https://github.com/ChinoKou/ULearningCWAuto/releases/latest"
+                    "请前往下载新版本: https://github.com/ChinoKou/UCourseAuto/releases/latest"
                 )
                 logger.info(f"版本 {latest_release_tag} 发布信息如下: ")
                 print(latest_release_content)
