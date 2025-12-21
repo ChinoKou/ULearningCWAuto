@@ -2,6 +2,8 @@ import asyncio
 import json
 import random
 import time
+import os
+from sys import stderr
 from collections.abc import Callable
 from traceback import format_exc
 from typing import TYPE_CHECKING
@@ -33,10 +35,42 @@ from models import (
     UserAPI,
     UserConfig,
 )
-from utils import answer, set_logger, sync_text_decrypt
+from utils import answer, sync_text_decrypt
 
 if TYPE_CHECKING:
     from config import Config
+
+
+class LoggerManager:
+    """日志管理类"""
+
+    def __init__(self, dir_name: str = "ucourse_logs") -> None:
+        """
+        日志管理类初始化
+
+        :param dir_name: 日志目录名
+        :type dir_name: str
+        """
+        # 创建日志目录
+        log_dir = os.path.join(os.getcwd(), dir_name)
+        if not os.path.exists(log_dir):
+            os.mkdir(log_dir)
+
+        # 初始化日志配置
+        start_time = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+        self.log_file = os.path.join(log_dir, f"{start_time}.log")
+        self.log_format = "<green>{time:MM-DD HH:mm:ss}</green> | <level>{level:<8}</level> | <level>{message}</level>"
+
+    def set_logger(self, debug=False) -> None:
+        """设置日志"""
+
+        # 获取日志等级
+        log_level = "DEBUG" if debug else "INFO"
+
+        # 修改日志配置
+        logger.remove()
+        for sink, level in {stderr: log_level, self.log_file: "DEBUG"}.items():
+            logger.add(sink=sink, level=level, format=self.log_format)
 
 
 class HttpClient:
@@ -794,7 +828,9 @@ class UserManager:
 class ConfigManager:
     """配置管理类"""
 
-    def __init__(self, config: "Config", client: HttpClient) -> None:
+    def __init__(
+        self, config: "Config", client: HttpClient, logger_manager: LoggerManager
+    ) -> None:
         """
         配置管理类初始化
 
@@ -806,6 +842,7 @@ class ConfigManager:
 
         self.config = config
         self.client = client
+        self.logger_manager = logger_manager
 
     async def menu(self) -> None:
         """配置管理菜单"""
@@ -868,7 +905,7 @@ class ConfigManager:
                 self.config.save()
 
                 # 修改日志输出
-                set_logger(True)
+                self.logger_manager.set_logger(debug=True)
 
                 # 重新创建 HttpClient 内部的客户端
                 if not await self.client.re_create_client(debug=True):
@@ -882,7 +919,7 @@ class ConfigManager:
                 self.config.save()
 
                 # 修改日志输出
-                set_logger(False)
+                self.logger_manager.set_logger(debug=False)
 
                 # 重新创建 HttpClient 内部的客户端
                 if not await self.client.re_create_client(debug=False):

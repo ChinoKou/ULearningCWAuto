@@ -8,8 +8,14 @@ import questionary
 from loguru import logger
 
 from config import Config
-from services import ConfigManager, CoursewareManager, UserManager, VersionManager
-from utils import answer, set_logger
+from services import (
+    ConfigManager,
+    CoursewareManager,
+    UserManager,
+    VersionManager,
+    LoggerManager,
+)
+from utils import answer
 
 if TYPE_CHECKING:
     from services import HttpClient
@@ -33,7 +39,7 @@ class Main:
             "进入配置管理": self.enter_config_manager,
             "退出": lambda: None,
         }
-        set_logger(debug=self.config.debug)
+        logger_manager.set_logger(debug=self.config.debug)
 
     async def menu(self) -> None:
         """主菜单"""
@@ -80,7 +86,9 @@ class Main:
             return
 
         courseware_manager = CoursewareManager(
-            self.config.active_user, self.config, self.active_client
+            username=self.config.active_user,
+            config=self.config,
+            client=self.active_client,
         )
         await courseware_manager.menu()
 
@@ -94,13 +102,16 @@ class Main:
             logger.error("未登录")
             return
 
-        config_manager = ConfigManager(self.config, self.active_client)
+        config_manager = ConfigManager(
+            config=self.config, client=self.active_client, logger_manager=logger_manager
+        )
         await config_manager.menu()
 
 
 if __name__ == "__main__":
     try:
-        set_logger()
+        logger_manager = LoggerManager()
+        logger_manager.set_logger(debug=False)
         logger.info("程序开源地址: https://github.com/ChinoKou/UCourseAuto")
         main = Main()
         asyncio.run(main.menu())
