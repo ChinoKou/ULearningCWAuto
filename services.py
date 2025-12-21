@@ -1454,7 +1454,7 @@ class CourseManager:
             ) -> None:
                 """
                 内部处理课件函数
-                
+
                 :param chapters: 章节信息字典
                 :type chapters: dict[int, CoursewareChapter]
                 :param user_info: 用户信息对象
@@ -1485,71 +1485,72 @@ class CourseManager:
                             )
                             continue
 
-                        # 创建引用
-                        pages = section_info.pages
+                        if not is_first:
+                            # 创建引用
+                            pages = section_info.pages
 
-                        # 遍历页面
-                        for page_id, page_info in pages.items():
-                            # 如果页面类型为视频
-                            if page_info.page_content_type == 6:
+                            # 遍历页面
+                            for page_id, page_info in pages.items():
+                                # 如果页面类型为视频
+                                if page_info.page_content_type == 6:
 
-                                # 收集上报视频观看行为的协程对象列表
-                                coros_watch_video_behavior = []
-                                for element_info in page_info.elements:
-                                    # 跳过非视频元素
-                                    if not isinstance(element_info, ElementVideo):
-                                        continue
-                                    # 创建引用
-                                    video_id = element_info.video_id
-                                    coros_watch_video_behavior.append(
-                                        self.course_api.watch_video_behavior(
-                                            class_id=class_id,
-                                            textbook_id=textbook_id,
-                                            chapter_id=chapter_id,
-                                            video_id=video_id,
+                                    # 收集上报视频观看行为的协程对象列表
+                                    coros_watch_video_behavior = []
+                                    for element_info in page_info.elements:
+                                        # 跳过非视频元素
+                                        if not isinstance(element_info, ElementVideo):
+                                            continue
+                                        # 创建引用
+                                        video_id = element_info.video_id
+                                        coros_watch_video_behavior.append(
+                                            self.course_api.watch_video_behavior(
+                                                class_id=class_id,
+                                                textbook_id=textbook_id,
+                                                chapter_id=chapter_id,
+                                                video_id=video_id,
+                                            )
                                         )
+
+                                    # 异步调度
+                                    results_watch_video_behavior = await asyncio.gather(
+                                        *coros_watch_video_behavior
                                     )
 
-                                # 异步调度
-                                results_watch_video_behavior = await asyncio.gather(
-                                    *coros_watch_video_behavior
-                                )
+                                    # 解析异步调度信息
+                                    parsed_watch_video_behaviors: dict[int, bool] = {}
+                                    for result in results_watch_video_behavior:
+                                        for video_id, watch_status in result.items():
+                                            parsed_watch_video_behaviors[video_id] = (
+                                                watch_status
+                                            )
 
-                                # 解析异步调度信息
-                                parsed_watch_video_behaviors: dict[int, bool] = {}
-                                for result in results_watch_video_behavior:
-                                    for video_id, watch_status in result.items():
-                                        parsed_watch_video_behaviors[video_id] = (
-                                            watch_status
-                                        )
+                                    # 遍历所有元素
+                                    for element_info in page_info.elements:
 
-                                # 遍历所有元素
-                                for element_info in page_info.elements:
+                                        # 跳过非视频元素
+                                        if not isinstance(element_info, ElementVideo):
+                                            continue
 
-                                    # 跳过非视频元素
-                                    if not isinstance(element_info, ElementVideo):
-                                        continue
+                                        # 创建引用
+                                        video_id = element_info.video_id
 
-                                    # 创建引用
-                                    video_id = element_info.video_id
+                                        # 上报视频观看行为, 疑似是用来前端防多开
+                                        watch_status = parsed_watch_video_behaviors[
+                                            video_id
+                                        ]
 
-                                    # 上报视频观看行为, 疑似是用来前端防多开
-                                    watch_status = parsed_watch_video_behaviors[
-                                        video_id
-                                    ]
+                                        if not watch_status:
+                                            logger.warning(
+                                                f"[视频][{video_id}] 上报观看行为失败"
+                                            )
 
-                                    if not watch_status:
-                                        logger.warning(
-                                            f"[视频][{video_id}] 上报观看行为失败"
-                                        )
+                                        else:
+                                            logger.success(
+                                                f"[视频][{video_id}] 上报观看行为成功"
+                                            )
 
-                                    else:
-                                        logger.success(
-                                            f"[视频][{video_id}] 上报观看行为成功"
-                                        )
-
-                                    # 休眠 0.3s
-                                    await asyncio.sleep(0.3)
+                                        # 休眠 0.3s
+                                        await asyncio.sleep(0.3)
 
                         # 为该 节 创建学习记录请求
                         logger.info(f"[节][{section_id}] 开始构造同步学习记录请求")
@@ -2464,7 +2465,7 @@ class DataManager:
         section_info: CoursewareSection,
         user_info: CourseAPIUserInfoAPIResponse,
         study_time_config: ConfigModel.StudyTime,
-        is_first: bool = False,
+        is_first: bool,
     ) -> SyncStudyRecordAPIRequest | None:
         """
         构造同步学习记录请求
@@ -2513,132 +2514,133 @@ class DataManager:
                 page_study_record_dto_videos = []
                 page_study_record_dto_questions = []
 
-                # 类型为Doc/Content
-                if page_content_type == 5:
-                    # 分数为100
-                    page_score = 100
+                if not is_first:
+                    # 类型为Doc/Content
+                    if page_content_type == 5:
+                        # 分数为100
+                        page_score = 100
 
-                    # 获取元素数量
-                    element_num = len(page_info.elements)
+                        # 获取元素数量
+                        element_num = len(page_info.elements)
 
-                    # 判断页面类型
-                    element_is_document = False
-                    for element in page_info.elements:
-                        if isinstance(element, ElementDocumen):
-                            element_is_document = True
-                            break
+                        # 判断页面类型
+                        element_is_document = False
+                        for element in page_info.elements:
+                            if isinstance(element, ElementDocumen):
+                                element_is_document = True
+                                break
 
-                    # 类型为Doc
-                    if element_is_document:
-                        # 添加学习时长, 最大时长为3600秒
-                        page_study_time += min(
-                            random.randint(
-                                study_time_config.document.min,
-                                study_time_config.document.max,
+                        # 类型为Doc
+                        if element_is_document:
+                            # 添加学习时长, 最大时长为3600秒
+                            page_study_time += min(
+                                random.randint(
+                                    study_time_config.document.min,
+                                    study_time_config.document.max,
+                                )
+                                * element_num,
+                                3600,
                             )
-                            * element_num,
-                            3600,
-                        )
-                        logger.info(f"[文档] 学习 {page_study_time} 秒")
+                            logger.info(f"[文档] 学习 {page_study_time} 秒")
 
-                    # 类型为Content
-                    else:
-                        # 添加学习时长, 最大时长为3600秒
-                        page_study_time += min(
-                            random.randint(
-                                study_time_config.content.min,
-                                study_time_config.content.max,
+                        # 类型为Content
+                        else:
+                            # 添加学习时长, 最大时长为3600秒
+                            page_study_time += min(
+                                random.randint(
+                                    study_time_config.content.min,
+                                    study_time_config.content.max,
+                                )
+                                * element_num,
+                                3600,
                             )
-                            * element_num,
-                            3600,
-                        )
-                        logger.info(f"[纯文本] 学习 {page_study_time} 秒")
+                            logger.info(f"[纯文本] 学习 {page_study_time} 秒")
 
-                # 类型为Video
-                elif page_content_type == 6:
-                    # 分数为100
-                    page_score = 100
+                    # 类型为Video
+                    elif page_content_type == 6:
+                        # 分数为100
+                        page_score = 100
 
-                    # 遍历所有元素
-                    elements = page_info.elements
-                    for element in elements:
-                        # 非视频元素跳过
-                        if not isinstance(element, ElementVideo):
-                            continue
+                        # 遍历所有元素
+                        elements = page_info.elements
+                        for element in elements:
+                            # 非视频元素跳过
+                            if not isinstance(element, ElementVideo):
+                                continue
 
-                        # 创建引用
-                        video_id = element.video_id
-                        video_length = element.video_length
-
-                        # 添加学习时长
-                        page_study_time += video_length
-                        logger.info(f"[视频][{video_id}] 学习 {video_length} 秒")
-
-                        # 获取视频开始时间戳(s)
-                        video_start_time = time.time()
-                        # 随机观看时长
-                        video_watch_time = video_length - random.uniform(2, 8)
-
-                        # 创建视频数据模型
-                        page_study_record_dto_videos.append(
-                            VideoDTO(
-                                videoid=video_id,
-                                current=video_watch_time,
-                                recordTime=video_watch_time,
-                                time=video_length,
-                                startEndTimeList=[
-                                    StartEndTime(
-                                        startTime=int(video_start_time),
-                                        endTime=int(
-                                            video_start_time + video_watch_time
-                                        ),
-                                    )
-                                ],
-                            )
-                        )
-
-                # 类型为Question
-                elif page_content_type == 7:
-                    # 添加学习时长, 最大时长为3600秒
-                    page_study_time += min(
-                        random.randint(
-                            study_time_config.question.min,
-                            study_time_config.question.max,
-                        ),
-                        3600,
-                    )
-                    logger.info(f"[题目] 学习 {page_study_time} 秒")
-
-                    # 遍历所有元素
-                    elements = page_info.elements
-                    for element in elements:
-                        # 非题目元素跳过
-                        if not isinstance(element, ElementQuestion):
-                            continue
-
-                        # 遍历所有题目
-                        for question in element.questions:
                             # 创建引用
-                            question_id = question.question_id
-                            answer_list = question.question_answer_list
-                            question_score = question.question_score
+                            video_id = element.video_id
+                            video_length = element.video_length
 
-                            # 添加分数
-                            page_score += question_score
+                            # 添加学习时长
+                            page_study_time += video_length
+                            logger.info(f"[视频][{video_id}] 学习 {video_length} 秒")
 
-                            # 创建题目数据模型
-                            page_study_record_dto_questions.append(
-                                QuestionDTO(
-                                    questionid=question_id,
-                                    answerList=answer_list,
-                                    score=question_score,
+                            # 获取视频开始时间戳(s)
+                            video_start_time = time.time()
+                            # 随机观看时长
+                            video_watch_time = video_length - random.uniform(2, 8)
+
+                            # 创建视频数据模型
+                            page_study_record_dto_videos.append(
+                                VideoDTO(
+                                    videoid=video_id,
+                                    current=video_watch_time,
+                                    recordTime=video_watch_time,
+                                    time=video_length,
+                                    startEndTimeList=[
+                                        StartEndTime(
+                                            startTime=int(video_start_time),
+                                            endTime=int(
+                                                video_start_time + video_watch_time
+                                            ),
+                                        )
+                                    ],
                                 )
                             )
 
-                # 未知类型
-                else:
-                    logger.warning(f"未知的页面类型: {page_content_type}")
-                    continue
+                    # 类型为Question
+                    elif page_content_type == 7:
+                        # 添加学习时长, 最大时长为3600秒
+                        page_study_time += min(
+                            random.randint(
+                                study_time_config.question.min,
+                                study_time_config.question.max,
+                            ),
+                            3600,
+                        )
+                        logger.info(f"[题目] 学习 {page_study_time} 秒")
+
+                        # 遍历所有元素
+                        elements = page_info.elements
+                        for element in elements:
+                            # 非题目元素跳过
+                            if not isinstance(element, ElementQuestion):
+                                continue
+
+                            # 遍历所有题目
+                            for question in element.questions:
+                                # 创建引用
+                                question_id = question.question_id
+                                answer_list = question.question_answer_list
+                                question_score = question.question_score
+
+                                # 添加分数
+                                page_score += question_score
+
+                                # 创建题目数据模型
+                                page_study_record_dto_questions.append(
+                                    QuestionDTO(
+                                        questionid=question_id,
+                                        answerList=answer_list,
+                                        score=question_score,
+                                    )
+                                )
+
+                    # 未知类型
+                    else:
+                        logger.warning(f"未知的页面类型: {page_content_type}")
+                        continue
 
                 # 创建页面数据模型
                 page_study_record_dto_list.append(
@@ -2710,7 +2712,7 @@ class VersionManager:
                 else:
                     logger.warning("似乎没有可用的 Github 代理")
 
-            resp = await self.client.get(url=url, timeout=5, follow_redirects=True)
+            resp = await self.client.get(url=url, timeout=3, follow_redirects=True)
             if not resp or resp.status_code != 200:
                 status_code = resp.status_code if resp else None
                 logger.error(
