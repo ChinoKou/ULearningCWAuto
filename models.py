@@ -682,7 +682,7 @@ class CourseAPIUserInfoAPIResponse(BaseAPIResponse):
     """头像"""
     orgid: int
     """机构ID"""
-    logo: str
+    logo: str | None = None
     """机构Logo"""
     roleid: int
     """角色ID"""
