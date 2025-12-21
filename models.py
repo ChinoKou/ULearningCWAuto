@@ -727,7 +727,7 @@ class UserConfig(BaseModel):
     """用户名"""
     password: str = Field(title="密码")
     """密码"""
-    token: str = "a"  # 占位
+    token: str = "abc"  # 占位
     """鉴权令牌"""
     cookies: dict = Field(default_factory=dict)
     """Cookies"""
