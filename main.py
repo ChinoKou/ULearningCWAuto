@@ -8,7 +8,7 @@ import questionary
 from loguru import logger
 
 from config import Config
-from services import ConfigManager, CourseManager, UserManager, VersionManager
+from services import ConfigManager, CoursewareManager, UserManager, VersionManager
 from utils import answer, set_logger
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ class Main:
             "退出",
         ]
         self.choices_map: dict[str, Callable] = {
-            "进入课件管理": self.enter_course_manager,
+            "进入课件管理": self.enter_courseware_manager,
             "进入账户管理": self.enter_user_manager,
             "进入配置管理": self.enter_config_manager,
             "退出": lambda: None,
@@ -56,7 +56,9 @@ class Main:
 
             self.active_client = await self.user_manager.get_client()
 
-            logger.warning(f"请尽量通过 '退出' 选项关闭程序, 或多次按下 Ctrl+C 快速退出")
+            logger.warning(
+                f"请尽量通过 '退出' 选项关闭程序, 或多次按下 Ctrl+C 快速退出"
+            )
             logger.info(f"当前用户: {self.config.active_user}")
 
             choice = await answer(
@@ -71,16 +73,16 @@ class Main:
 
             await self.choices_map[choice]()
 
-    async def enter_course_manager(self) -> None:
+    async def enter_courseware_manager(self) -> None:
         """进入课件管理"""
         if not self.active_client:
             logger.error("未登录")
             return
 
-        course_manager = CourseManager(
+        courseware_manager = CoursewareManager(
             self.config.active_user, self.config, self.active_client
         )
-        await course_manager.menu()
+        await courseware_manager.menu()
 
     async def enter_user_manager(self) -> None:
         """进入账户管理"""
