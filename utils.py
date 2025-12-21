@@ -1,7 +1,4 @@
-import os
 from base64 import b64decode, b64encode
-from sys import stderr
-from time import localtime, strftime
 
 import machineid
 from Crypto.Cipher import AES, DES
@@ -9,7 +6,6 @@ from Crypto.Hash import HMAC, SHA256
 from Crypto.Random import get_random_bytes
 from Crypto.Util import Padding
 from Crypto.Util.Padding import pad, unpad
-from loguru import logger
 from questionary import Question
 
 
